@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Register — InkTrail</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">IT</span>
+      <span class="brand-word">InkTrail</span>
+    </a>
+    <div class="nav-links" style="position:static; transform:none; opacity:1; pointer-events:auto; padding:0; border:none; flex-direction:row;">
+      <a class="nav-link" href="index.html">Feed</a>
+    </div>
+  </div>
+</nav>
+
+<main class="auth-wrap">
+  <div class="auth-card">
+    <p class="eyebrow">Join InkTrail</p>
+    <h1>Create your account</h1>
+    <p class="lede">Get a dashboard, an editor, and a byline.</p>
+
+    <form id="register-form" novalidate>
+      <div class="field" id="name-field">
+        <label for="name">Full name</label>
+        <input type="text" id="name" name="name" autocomplete="name" required />
+        <p class="field-error">Enter your name.</p>
+      </div>
+      <div class="field" id="email-field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required />
+        <p class="field-error">Enter a valid email address.</p>
+      </div>
+      <div class="field" id="password-field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="new-password" required />
+        <p class="field-hint">At least 6 characters.</p>
+        <p class="field-error">Password must be at least 6 characters.</p>
+      </div>
+      <button class="btn btn--primary btn--block" type="submit">Create account</button>
+    </form>
+
+    <p class="auth-foot">Already writing here? <a href="login.html">Log in</a></p>
+  </div>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const form = document.getElementById("register-form");
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = document.getElementById("name");
+    const email = document.getElementById("email");
+    const password = document.getElementById("password");
+    let valid = true;
+
+    toggleError("name-field", !name.value.trim());
+    if (!name.value.trim()) valid = false;
+
+    const emailOk = /^\S+@\S+\.\S+$/.test(email.value);
+    toggleError("email-field", !emailOk);
+    if (!emailOk) valid = false;
+
+    const passOk = password.value.length >= 6;
+    toggleError("password-field", !passOk);
+    if (!passOk) valid = false;
+
+    if (!valid) return;
+
+    if (DB.findUserByEmail(email.value)) {
+      toast("An account with that email already exists.", "error");
+      return;
+    }
+
+    const user = {
+      id: "u_" + Date.now(),
+      name: name.value.trim(),
+      email: email.value.trim(),
+      password: password.value,
+      joined: Date.now(),
+      bio: "",
+    };
+    DB.createUser(user);
+    DB.setSession(user.id);
+    toast(`Account created. Welcome, ${user.name.split(" ")[0]}.`);
+    setTimeout(() => (location.href = "dashboard.html"), 500);
+  });
+  function toggleError(fieldId, hasError) {
+    document.getElementById(fieldId).classList.toggle("has-error", hasError);
+  }
+</script>
+</body>
+</html>

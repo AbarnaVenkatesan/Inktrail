@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log in — InkTrail</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">IT</span>
+      <span class="brand-word">InkTrail</span>
+    </a>
+    <div class="nav-links" style="position:static; transform:none; opacity:1; pointer-events:auto; padding:0; border:none; flex-direction:row;">
+      <a class="nav-link" href="index.html">Feed</a>
+    </div>
+  </div>
+</nav>
+
+<main class="auth-wrap">
+  <div class="auth-card">
+    <p class="eyebrow">Welcome back</p>
+    <h1>Log in</h1>
+    <p class="lede">Pick up your draft where you left it.</p>
+
+    <form id="login-form" novalidate>
+      <div class="field" id="email-field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required />
+        <p class="field-error">Enter a valid email address.</p>
+      </div>
+      <div class="field" id="password-field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required />
+        <p class="field-error">Password is required.</p>
+      </div>
+      <button class="btn btn--primary btn--block" type="submit">Log in</button>
+    </form>
+
+    <div class="demo-hint">Demo account — email: demo@inktrail.dev · password: demo1234</div>
+    <p class="auth-foot">New here? <a href="register.html">Create an account</a></p>
+  </div>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const form = document.getElementById("login-form");
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email");
+    const password = document.getElementById("password");
+    let valid = true;
+
+    if (!/^\S+@\S+\.\S+$/.test(email.value)) {
+      document.getElementById("email-field").classList.add("has-error");
+      valid = false;
+    } else {
+      document.getElementById("email-field").classList.remove("has-error");
+    }
+    if (!password.value) {
+      document.getElementById("password-field").classList.add("has-error");
+      valid = false;
+    } else {
+      document.getElementById("password-field").classList.remove("has-error");
+    }
+    if (!valid) return;
+
+    const user = DB.findUserByEmail(email.value);
+    if (!user || user.password !== password.value) {
+      toast("Email or password doesn't match.", "error");
+      return;
+    }
+    DB.setSession(user.id);
+    toast(`Welcome back, ${user.name.split(" ")[0]}.`);
+    const redirect = sessionStorage.getItem("inktrail_redirect") || "dashboard.html";
+    sessionStorage.removeItem("inktrail_redirect");
+    setTimeout(() => (location.href = redirect), 500);
+  });
+</script>
+</body>
+</html>

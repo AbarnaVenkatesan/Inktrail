@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Write — InkTrail</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">IT</span>
+      <span class="brand-word">InkTrail</span>
+    </a>
+    <button class="menu-toggle" data-menu-toggle aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" data-menu>
+      <a class="nav-link" href="index.html">Feed</a>
+      <span data-auth-slot style="display:flex; align-items:center; gap:22px;"></span>
+    </div>
+  </div>
+</nav>
+
+<main class="section">
+  <div class="container">
+    <p class="eyebrow" id="editor-eyebrow">New post</p>
+    <h1 id="editor-title" style="margin-bottom:26px;">Write something worth editing</h1>
+
+    <div class="field">
+      <label for="title-input">Title</label>
+      <input type="text" id="title-input" placeholder="Give it a title that earns the click" />
+      <p class="field-error" id="title-error">A title is required.</p>
+    </div>
+
+    <div class="field">
+      <label for="tag-text-input">Tags</label>
+      <div class="tag-input-row" id="tag-row">
+        <input type="text" id="tag-text-input" placeholder="Type a tag and press Enter" />
+      </div>
+      <p class="field-hint">Press Enter or comma to add a tag.</p>
+    </div>
+
+    <div class="field">
+      <label>Content — write in the panel, watch it render on the right</label>
+      <div class="editor-toolbar">
+        <button type="button" data-md="**bold**">Bold</button>
+        <button type="button" data-md="*italic*">Italic</button>
+        <button type="button" data-md="# Heading">Heading</button>
+        <button type="button" data-md="- list item">List item</button>
+        <button type="button" data-md="[link text](https://)">Link</button>
+      </div>
+      <div class="editor-grid">
+        <textarea id="content-input" placeholder="# Start with a strong first line
+
+Write like you talk. Use **bold** and *italics* to emphasize, and dashes for lists:
+
+- point one
+- point two"></textarea>
+        <div class="preview-pane">
+          <span class="eyebrow">Live preview</span>
+          <div id="preview-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor-actions">
+      <button class="btn btn--ghost" id="save-draft-btn">Save as draft</button>
+      <button class="btn btn--primary" id="publish-btn">Publish post</button>
+      <span id="save-status" style="align-self:center; font-size:0.85rem; color:var(--muted);"></span>
+    </div>
+  </div>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  requireAuth();
+  const user = DB.currentUser();
+  const editId = new URLSearchParams(location.search).get("edit");
+  const existing = editId ? DB.getPost(editId) : null;
+  let tags = existing ? [...existing.tags] : [];
+
+  if (existing) {
+    document.getElementById("editor-eyebrow").textContent = "Editing";
+    document.getElementById("editor-title").textContent = "Sharpen your draft";
+    document.getElementById("title-input").value = existing.title;
+    document.getElementById("content-input").value = existing.content;
+  }
+
+  const titleInput = document.getElementById("title-input");
+  const contentInput = document.getElementById("content-input");
+  const preview = document.getElementById("preview-output");
+
+  function renderTags() {
+    document.querySelectorAll(".tag-chip").forEach((c) => c.remove());
+    const row = document.getElementById("tag-row");
+    const input = document.getElementById("tag-text-input");
+    tags.forEach((t) => {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.innerHTML = `${t} <button type="button" aria-label="Remove tag ${t}">×</button>`;
+      chip.querySelector("button").addEventListener("click", () => {
+        tags = tags.filter((x) => x !== t);
+        renderTags();
+      });
+      row.insertBefore(chip, input);
+    });
+  }
+  document.getElementById("tag-text-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const val = e.target.value.trim().toLowerCase().replace(/,/g, "");
+      if (val && !tags.includes(val)) {
+        tags.push(val);
+        renderTags();
+      }
+      e.target.value = "";
+    }
+  });
+  renderTags();
+
+  function updatePreview() {
+    preview.innerHTML = contentInput.value.trim()
+      ? renderMarkdown(contentInput.value)
+      : `<p style="color:var(--muted);">Start typing to see your post take shape here.</p>`;
+  }
+  contentInput.addEventListener("input", updatePreview);
+  updatePreview();
+
+  document.querySelectorAll("[data-md]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const insert = btn.dataset.md;
+      const start = contentInput.selectionStart;
+      const end = contentInput.selectionEnd;
+      const val = contentInput.value;
+      contentInput.value = val.slice(0, start) + insert + val.slice(end);
+      contentInput.focus();
+      contentInput.selectionStart = contentInput.selectionEnd = start + insert.length;
+      updatePreview();
+    });
+  });
+
+  function validate() {
+    const ok = titleInput.value.trim().length > 0;
+    document.getElementById("title-error").style.display = ok ? "none" : "block";
+    titleInput.style.borderColor = ok ? "" : "var(--accent)";
+    return ok;
+  }
+
+  function save(publish) {
+    if (!validate()) {
+      toast("Give your post a title first.", "error");
+      return;
+    }
+    if (!contentInput.value.trim()) {
+      toast("Your post has no content yet.", "error");
+      return;
+    }
+    const payload = {
+      title: titleInput.value.trim(),
+      content: contentInput.value,
+      tags: tags.length ? tags : ["general"],
+      published: publish,
+    };
+    if (existing) {
+      DB.updatePost(existing.id, payload);
+      toast(publish ? "Post published." : "Draft saved.");
+    } else {
+      DB.createPost({
+        id: "p_" + Date.now(),
+        authorId: user.id,
+        authorName: user.name,
+        likes: 0,
+        createdAt: Date.now(),
+        ...payload,
+      });
+      toast(publish ? "Post published." : "Draft saved.");
+    }
+    setTimeout(() => (location.href = "dashboard.html"), 600);
+  }
+  document.getElementById("save-draft-btn").addEventListener("click", () => save(false));
+  document.getElementById("publish-btn").addEventListener("click", () => save(true));
+</script>
+</body>
+</html>

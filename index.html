@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>InkTrail — Write in the margins</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">IT</span>
+      <span class="brand-word">InkTrail</span>
+    </a>
+    <button class="menu-toggle" data-menu-toggle aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" data-menu>
+      <a class="nav-link" href="index.html">Feed</a>
+      <span data-auth-slot style="display:flex; align-items:center; gap:22px;"></span>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container hero-grid">
+    <div>
+      <p class="eyebrow">A blog platform for people who edit in red pen</p>
+      <h1>Write it messy.<br><span class="typed" id="typed-text"></span></h1>
+      <p class="hero-lede">InkTrail is where a first draft becomes a published post — with your own dashboard, a live preview as you type, and a feed that actually reads like one.</p>
+      <div class="hero-actions">
+        <a class="btn btn--primary" href="register.html">Start writing — it's free</a>
+        <a class="btn btn--ghost" href="#feed">Read the feed</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><b id="stat-posts">—</b><span>Posts published</span></div>
+        <div class="hero-stat"><b id="stat-authors">—</b><span>Authors</span></div>
+        <div class="hero-stat"><b id="stat-words">—</b><span>Avg. read, min</span></div>
+      </div>
+    </div>
+    <div class="hero-card">
+      <h3>Designing a Responsive Blog Interface</h3>
+      <p>Start from the narrowest screen. Everything wider is <span class="mark">addition</span>, not subtraction.</p>
+      <div class="post-meta"><span>Demo Author</span><span>·</span><span>4 min read</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="section" id="feed">
+  <div class="container">
+    <div class="section-head">
+      <h2>Latest from the feed</h2>
+    </div>
+    <div class="filter-bar">
+      <input type="search" id="search-input" placeholder="Search posts…" aria-label="Search posts" />
+      <div id="tag-filters" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+    </div>
+    <div class="post-grid" id="post-grid"></div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>InkTrail — a student project. Frontend Development module, Day 1–4.</p>
+    <p>Built with HTML, CSS &amp; JavaScript.</p>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // typewriter headline
+  (function typeHeadline() {
+    const el = document.getElementById("typed-text");
+    const phrases = ["Publish it proud.", "Edit it sharp.", "Share it wide."];
+    let p = 0, i = 0, deleting = false;
+    function tick() {
+      const word = phrases[p];
+      el.textContent = deleting ? word.slice(0, i--) : word.slice(0, i++);
+      if (!deleting && i === word.length + 1) { deleting = true; setTimeout(tick, 1400); return; }
+      if (deleting && i < 0) { deleting = false; p = (p + 1) % phrases.length; i = 0; }
+      setTimeout(tick, deleting ? 35 : 65);
+    }
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) tick();
+    else el.textContent = phrases[0];
+  })();
+
+  // feed render
+  let activeTag = null;
+  function allTags(posts) {
+    return [...new Set(posts.flatMap((p) => p.tags))];
+  }
+  function renderFeed() {
+    const posts = DB.getPublishedPosts();
+    const q = document.getElementById("search-input").value.trim().toLowerCase();
+    const filtered = posts.filter((p) => {
+      const matchesQ = !q || p.title.toLowerCase().includes(q) || p.tags.some((t) => t.includes(q));
+      const matchesTag = !activeTag || p.tags.includes(activeTag);
+      return matchesQ && matchesTag;
+    });
+
+    const grid = document.getElementById("post-grid");
+    grid.innerHTML = filtered.length
+      ? filtered.map(postCard).join("")
+      : `<div class="empty-state" style="grid-column:1/-1;"><p class="display">No posts match that search.</p><p>Try a different keyword or tag.</p></div>`;
+
+    grid.querySelectorAll("[data-like]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const liked = DB.toggleLike(btn.dataset.like);
+        btn.classList.toggle("is-liked", liked);
+        btn.querySelector("span").textContent = DB.getPost(btn.dataset.like).likes;
+      });
+    });
+
+    const tagHost = document.getElementById("tag-filters");
+    const tags = allTags(posts);
+    tagHost.innerHTML = tags
+      .map((t) => `<button class="tag-pill ${t === activeTag ? "is-active" : ""}" data-tag="${t}">${t}</button>`)
+      .join("");
+    tagHost.querySelectorAll("[data-tag]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeTag = activeTag === btn.dataset.tag ? null : btn.dataset.tag;
+        renderFeed();
+      });
+    });
+
+    document.getElementById("stat-posts").textContent = posts.length;
+    document.getElementById("stat-authors").textContent = new Set(posts.map((p) => p.authorId)).size;
+    const avg = posts.length ? Math.round(posts.reduce((s, p) => s + readingTime(p.content), 0) / posts.length) : 0;
+    document.getElementById("stat-words").textContent = avg;
+  }
+  function postCard(p) {
+    const liked = DB.isLiked(p.id);
+    return `
+      <a class="post-card reveal is-visible" href="post.html?id=${p.id}">
+        <div class="post-meta"><span>${p.authorName}</span><span>·</span><span>${formatDate(p.createdAt)}</span><span>·</span><span>${readingTime(p.content)} min</span></div>
+        <h3>${p.title}</h3>
+        <p class="post-excerpt">${excerpt(p.content)}</p>
+        <div class="post-tags">${p.tags.map((t) => `<span class="post-tag">${t}</span>`).join("")}</div>
+        <div class="post-foot">
+          <button class="like-btn ${liked ? "is-liked" : ""}" data-like="${p.id}">♥ <span>${p.likes}</span></button>
+          <span>Read →</span>
+        </div>
+      </a>`;
+  }
+  document.getElementById("search-input").addEventListener("input", renderFeed);
+  renderFeed();
+</script>
+</body>
+</html>
