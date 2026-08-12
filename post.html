@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Post — InkTrail</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">IT</span>
+      <span class="brand-word">InkTrail</span>
+    </a>
+    <button class="menu-toggle" data-menu-toggle aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" data-menu>
+      <a class="nav-link" href="index.html">Feed</a>
+      <span data-auth-slot style="display:flex; align-items:center; gap:22px;"></span>
+    </div>
+  </div>
+</nav>
+
+<main class="section">
+  <div class="container" style="max-width:720px;">
+    <div id="post-root"></div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>InkTrail — a student project. Frontend Development module, Day 1–4.</p>
+    <p><a href="index.html">← Back to feed</a></p>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get("id");
+  const post = DB.getPost(id);
+  const root = document.getElementById("post-root");
+  if (!post) {
+    root.innerHTML = `<div class="empty-state"><p class="display">This post doesn't exist (yet).</p><p><a href="index.html">Back to the feed</a></p></div>`;
+  } else {
+    document.title = post.title + " — InkTrail";
+    const liked = DB.isLiked(post.id);
+    root.innerHTML = `
+      <p class="eyebrow">${post.tags.join(" · ")}</p>
+      <h1 style="font-size:clamp(1.8rem,4vw,2.6rem); margin-bottom:10px;">${post.title}</h1>
+      <div class="post-meta" style="margin-bottom:28px;">
+        <span>${post.authorName}</span><span>·</span><span>${formatDate(post.createdAt)}</span><span>·</span><span>${readingTime(post.content)} min read</span>
+      </div>
+      <article style="font-size:1.05rem;">${renderMarkdown(post.content)}</article>
+      <div style="margin-top:32px; display:flex; gap:14px; align-items:center;">
+        <button class="btn ${liked ? "btn--primary" : "btn--ghost"}" id="like-btn">♥ <span id="like-count">${post.likes}</span> likes</button>
+      </div>
+    `;
+    document.getElementById("like-btn").addEventListener("click", (e) => {
+      const nowLiked = DB.toggleLike(post.id);
+      e.currentTarget.classList.toggle("btn--primary", nowLiked);
+      e.currentTarget.classList.toggle("btn--ghost", !nowLiked);
+      document.getElementById("like-count").textContent = DB.getPost(post.id).likes;
+    });
+  }
+</script>
+</body>
+</html>
