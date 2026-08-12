@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — InkTrail</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">IT</span>
+      <span class="brand-word">InkTrail</span>
+    </a>
+    <button class="menu-toggle" data-menu-toggle aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" data-menu>
+      <a class="nav-link" href="index.html">Feed</a>
+      <span data-auth-slot style="display:flex; align-items:center; gap:22px;"></span>
+    </div>
+  </div>
+</nav>
+
+<main class="section">
+  <div class="container">
+    <div class="dash-header">
+      <div class="dash-title">
+        <p class="eyebrow" id="greet-eyebrow">Your desk</p>
+        <h1 id="greet-name">Dashboard</h1>
+      </div>
+      <a class="btn btn--primary" href="create.html">+ New post</a>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><b id="stat-total">0</b><span>Total posts</span></div>
+      <div class="stat-card"><b id="stat-published">0</b><span>Published</span></div>
+      <div class="stat-card"><b id="stat-drafts">0</b><span>Drafts</span></div>
+      <div class="stat-card"><b id="stat-likes">0</b><span>Total likes</span></div>
+    </div>
+
+    <div class="section-head">
+      <h2>Your posts</h2>
+    </div>
+    <div class="table-scroll">
+      <table class="post-table" id="post-table">
+        <thead>
+          <tr><th>Title</th><th>Status</th><th>Tags</th><th>Date</th><th>Likes</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="post-table-body"></tbody>
+      </table>
+    </div>
+    <div id="dash-empty" style="display:none;" class="empty-state">
+      <p class="display">Nothing here yet.</p>
+      <p>Your first post is one click away.</p>
+      <a class="btn btn--primary" href="create.html">Write your first post</a>
+    </div>
+  </div>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  requireAuth();
+  const user = DB.currentUser();
+
+  function render() {
+    document.getElementById("greet-name").textContent = `Hey, ${user.name.split(" ")[0]} — here's your desk`;
+    const posts = DB.getPostsByAuthor(user.id);
+
+    document.getElementById("stat-total").textContent = posts.length;
+    document.getElementById("stat-published").textContent = posts.filter((p) => p.published).length;
+    document.getElementById("stat-drafts").textContent = posts.filter((p) => !p.published).length;
+    document.getElementById("stat-likes").textContent = posts.reduce((s, p) => s + p.likes, 0);
+
+    const body = document.getElementById("post-table-body");
+    const table = document.getElementById("post-table");
+    const empty = document.getElementById("dash-empty");
+
+    if (!posts.length) {
+      table.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    table.style.display = "table";
+    empty.style.display = "none";
+
+    body.innerHTML = posts
+      .map(
+        (p) => `
+      <tr>
+        <td><a href="post.html?id=${p.id}" style="text-decoration:none; font-weight:600;">${p.title}</a></td>
+        <td><span class="status-pill ${p.published ? "published" : "draft"}">${p.published ? "Published" : "Draft"}</span></td>
+        <td>${p.tags.map((t) => `<span class="post-tag">${t}</span>`).join(" ")}</td>
+        <td>${formatDate(p.createdAt)}</td>
+        <td>${p.likes}</td>
+        <td>
+          <div class="row-actions">
+            <a class="icon-btn" href="create.html?edit=${p.id}">Edit</a>
+            <button class="icon-btn" data-toggle="${p.id}">${p.published ? "Unpublish" : "Publish"}</button>
+            <button class="icon-btn" data-delete="${p.id}">Delete</button>
+          </div>
+        </td>
+      </tr>`
+      )
+      .join("");
+
+    body.querySelectorAll("[data-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const post = DB.getPost(btn.dataset.toggle);
+        DB.updatePost(post.id, { published: !post.published });
+        toast(post.published ? "Moved to drafts." : "Published.");
+        render();
+      });
+    });
+    body.querySelectorAll("[data-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (confirm("Delete this post? This can't be undone.")) {
+          DB.deletePost(btn.dataset.delete);
+          toast("Post deleted.");
+          render();
+        }
+      });
+    });
+  }
+  render();
+</script>
+</body>
+</html>
